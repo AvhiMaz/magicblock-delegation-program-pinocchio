@@ -7,7 +7,12 @@ use pinocchio::{
     sysvars::{Sysvar, rent::Rent},
 };
 
-use crate::states::{deserialize_delegate_ix_data, get_seeds};
+use crate::{
+    states::{
+        DELEGATION_PROGRAM_ID, close_pda_acc, cpi_delegate, deserialize_delegate_ix_data, get_seeds,
+    },
+    types::DelegateAccountArgs,
+};
 
 pub const BUFFER: &[u8] = b"buffer";
 
@@ -107,6 +112,46 @@ pub fn _process_delegation(
         owner: &crate::ID,
     }
     .invoke_signed(&[buffer_signer_seeds.clone()])?;
+
+    let mut buffer_data = buffer_acc.try_borrow_mut_data()?;
+    let new_data = pda_acc.try_borrow_data()?.to_vec().clone();
+    (*buffer_data).copy_from_slice(&new_data);
+    drop(buffer_data);
+
+    //Close Delegate PDA in preparation for CPI Delegate
+    close_pda_acc(payer, pda_acc, system_program)?;
+
+    //we create account with Delegation Account
+    pinocchio_system::instructions::CreateAccount {
+        from: payer,
+        to: pda_acc,
+        lamports: Rent::get()?.minimum_balance(pda_acc.data_len()),
+        space: pda_acc.data_len() as u64, //PDA acc length
+        owner: &DELEGATION_PROGRAM_ID,
+    }
+    .invoke_signed(&[delegate_signer_seeds.clone()])?;
+
+    //preprare delegate args
+    //struct DelegateConfig comes from IX data
+    let delegate_args = DelegateAccountArgs {
+        commit_frequency_ms: config.commit_frequency_ms,
+        seeds: delegate_pda_seeds,
+        validator: config.validator,
+    };
+
+    cpi_delegate(
+        payer,
+        pda_acc,
+        owner_program,
+        buffer_acc,
+        delegation_record,
+        delegation_metadata,
+        system_program,
+        delegate_args,
+        delegate_signer_seeds,
+    )?;
+
+    close_pda_acc(payer, buffer_acc, system_program)?;
 
     Ok(())
 }
