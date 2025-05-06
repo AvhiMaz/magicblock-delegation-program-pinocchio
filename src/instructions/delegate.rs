@@ -1,26 +1,22 @@
 use pinocchio::{
-    ProgramResult,
     account_info::AccountInfo,
     instruction::{Seed, Signer},
     program_error::ProgramError,
     pubkey::{self, Pubkey},
-    sysvars::{Sysvar, rent::Rent},
+    sysvars::{rent::Rent, Sysvar},
+    ProgramResult,
 };
 
 use crate::{
     states::{
-        DELEGATION_PROGRAM_ID, close_pda_acc, cpi_delegate, deserialize_delegate_ix_data, get_seeds,
+        close_pda_acc, cpi_delegate, deserialize_delegate_ix_data, get_seeds, DELEGATION_PROGRAM_ID,
     },
     types::DelegateAccountArgs,
 };
 
 pub const BUFFER: &[u8] = b"buffer";
 
-pub fn _process_delegation(
-    _program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
-) -> ProgramResult {
+pub fn process_delegation(accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     // payer: Signer who pays for account creations/rents. Usually the client.
     // pda_acc: Program Derived Address (PDA) owned by your program. Stores counter state or delegation info.
     // owner_program: The program that originally owns or controls the state being delegated (e.g. the counter program).
@@ -28,16 +24,8 @@ pub fn _process_delegation(
     // delegation_record: A new or existing account that records the delegation event (who delegated, what, when).
     // delegation_metadata: Possibly stores metadata like TTL, rollup ID, hash commitments, or state proof refs.
     // system_program: Required when creating new accounts via CPI. Standard Solana system program.
-    let [
-        payer,
-        pda_acc,
-        owner_program,
-        buffer_acc,
-        delegation_record,
-        delegation_metadata,
-        system_program,
-        _rest @ ..,
-    ] = accounts
+    let [payer, pda_acc, owner_program, buffer_acc, delegation_record, delegation_metadata, system_program, _rest @ ..] =
+        accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -103,7 +91,7 @@ pub fn _process_delegation(
     //************************************************************************************************************************************************************
 
     //create buffer pda account
-    //
+
     pinocchio_system::instructions::CreateAccount {
         from: payer,
         to: buffer_acc,
@@ -155,4 +143,3 @@ pub fn _process_delegation(
 
     Ok(())
 }
-

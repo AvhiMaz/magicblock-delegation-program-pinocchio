@@ -4,6 +4,7 @@ use pinocchio_pubkey::declare_id;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod entrypoint;
 mod error;
 mod instructions;
 mod states;

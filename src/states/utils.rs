@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use bytemuck::from_bytes;
 use pinocchio::{
     account_info::AccountInfo,
